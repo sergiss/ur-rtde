@@ -37,6 +37,7 @@ public class URImpl implements UR {
 	
 	private String host;
 	private int port;
+	private RobotModeData robotModeData;
 
 	public URImpl(String host) {
 		this(host, DEFAULT_PORT);
@@ -136,7 +137,21 @@ public class URImpl implements UR {
 			read(is, buffer, 0, packageSize - 5);
 			bb = ByteBuffer.wrap(buffer, 0, packageSize - 5);
 				
-			// TODO : 
+			final RobotModeData rmd = URImpl.this.robotModeData;
+			rmd.setTimestamp(bb.getLong(0));
+			rmd.setRealRobotConnected(bb.get(8) == 1);
+			rmd.setRealRobotEnabled(bb.get(9) == 1);
+			rmd.setPowerOnRobot(bb.get(10) == 1);
+			rmd.setEmergencyStopped(bb.get(11) == 1);
+			rmd.setSecurityStopped(bb.get(12) == 1);
+			rmd.setProgramRunning(bb.get(13) == 1);
+			rmd.setProgramPaused(bb.get(14) == 1);
+			rmd.setRobotMode(bb.get(15) & 0xFF);
+			rmd.setControlMode(bb.get(16) & 0xFF);
+			rmd.setSpeedFraction(bb.getDouble(17));
+			rmd.setSpeedScalling(bb.getDouble(25));
+			rmd.setSpeedFractionLimit(bb.getDouble(33));
+			// char reserved
 				
 			break; // ROBOT_STATE_PACKAGE_TYPE_ROBOT_MODE_DATA
 		case ROBOT_STATE_PACKAGE_TYPE_JOINT_DATA: // 41 bytes
