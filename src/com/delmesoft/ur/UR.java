@@ -12,7 +12,7 @@ public interface UR {
 	
 	public static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.#################", new DecimalFormatSymbols(Locale.US));
 	
-	void connect() throws URException;
+	void connect() throws Exception;
 	
 	boolean isConnected();
 	

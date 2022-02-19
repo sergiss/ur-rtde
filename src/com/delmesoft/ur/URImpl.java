@@ -30,9 +30,10 @@ public class URImpl implements UR {
 	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO        = 11;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO        = 12;
 	public static final int MESSAGE_TYPE_ROBOT_STATE                       = 16;
+	public static final int MESSAGE_TYPE_ROBOT_MESSAGE                     = 20;
 	
 	public static final int SO_TIMEOUT     = 10000;
-	public static final int DEFAULT_PORT   = 30020;
+	public static final int DEFAULT_PORT   = 30002;
 	public static final int DASHBOARD_PORT = 29999;
 	
 	private Socket socket;
@@ -75,7 +76,7 @@ public class URImpl implements UR {
 	}
 
 	@Override
-	public synchronized void connect() throws URException {
+	public synchronized void connect() throws Exception {
 		
 		if(!isConnected()) {
 			
@@ -90,9 +91,8 @@ public class URImpl implements UR {
 				createURThread();
 				
 			} catch (Exception e) {
-				throw new URException("Errorr connecting", e);
-			} finally {
 				disconnect();
+				throw new Exception("Error connecting", e);
 			}
 			
 		}
@@ -153,10 +153,10 @@ public class URImpl implements UR {
 		// package_type uint8_t  (1 byte )
 		
 		read(is, buffer, 0, 5);
-		ByteBuffer bb = java.nio.ByteBuffer.wrap(buffer, 0, 5);
+		ByteBuffer bb = ByteBuffer.wrap(buffer, 0, 5);
 		
 		final int packageSize = bb.getInt(0);
-		final int packageType = bb.getInt(4);
+		final int packageType = bb.get(4);
 		
 		switch (packageType) {
 		
@@ -196,6 +196,7 @@ public class URImpl implements UR {
 				jointData.settMotor(bb.getFloat(32));
 				jointData.settMicro(bb.getFloat(36));
 				jointData.setJointMode(bb.get(40) & 0xFF);
+				
 			}
 			
 			break; // ROBOT_STATE_PACKAGE_TYPE_JOINT_DATA
@@ -235,7 +236,7 @@ public class URImpl implements UR {
 			masterBoardData.setRobotCurrent(bb.getFloat(52));
 			masterBoardData.setMasterIOCurrent(bb.getFloat(56));
 			
-			// TODO : fill remaining data
+			// TODO : use remaining data
 			
 			break; // ROBOT_STATE_PACKAGE_TYPE_MASTERBOARD_DATA
 		case ROBOT_STATE_PACKAGE_TYPE_CARTESIAN_INFO:
@@ -285,13 +286,13 @@ public class URImpl implements UR {
 		case ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO:
 			// This package is used internally by Universal Robots software only and should be skipped.
 			read(is, buffer, 0, packageSize - 5);
-			/*bb = ByteBuffer.wrap(buffer, 0, packageSize - 5);
+			/* bb = ByteBuffer.wrap(buffer, 0, packageSize - 5);
 			boolean toolCommunicationIsEnabled = bb.get() == 1;
 			int baudRate = bb.getInt(1);
 			int parity   = bb.getInt(5);
 			int stopBits = bb.getInt(9);
 			float rxIdleChars = bb.getFloat(13);
-			float txIdleChars = bb.getFloat(17);*/
+			float txIdleChars = bb.getFloat(17); */
 			break; // ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO
 		case ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO:
 			read(is, buffer, 0, packageSize - 5);
@@ -299,22 +300,13 @@ public class URImpl implements UR {
 		case MESSAGE_TYPE_ROBOT_STATE:
 			// ignore
 			break; // MESSAGE_TYPE_ROBOT_STATE
-		case 20: {// MESSAGE_TYPE_ROBOT_MESSAGE *********************************
+		case MESSAGE_TYPE_ROBOT_MESSAGE:
 			int n = packageSize - 5;
 			read(is, buffer, 0, n);
 			
-			/*bb = ByteBuffer.wrap(buffer, 0, n);
+			// TODO : pending implementation
 			
-			long timestamp = bb.getLong();
-			int source = bb.get(8);								
-			int messageType = bb.get(9);
-			
-			String message = new String(buffer, 10, n - 10);
-			System.out.println("*************");
-			System.out.println(message);*/
-			
-			break;
-		} // end case 20
+			break; // MESSAGE_TYPE_ROBOT_MESSAGE
 		default : // Unimplemented 
 			read(is, buffer, 0, packageSize - 5);
 			break;			
