@@ -54,7 +54,7 @@ public class URImpl implements UR {
 		
 	}
 
-	private void createURThread() {
+	private void createURThread() throws Exception {
 		
 		thread = new Thread("UR Thread") {
 			
@@ -62,6 +62,13 @@ public class URImpl implements UR {
 			public void run() {
 				
 				try {
+					
+					final byte[] buffer = new byte[2048];
+					
+					// Barrier for synchronization
+					synchronized (this) {
+						this.notify(); // open barrier
+					}
 				
 					// Loop
 					while(!isInterrupted()) {
@@ -71,14 +78,24 @@ public class URImpl implements UR {
 					}
 				
 				} catch (Exception e) {
-					e.printStackTrace(); // TODO: handle exception
+					if(isConnected()) { // still connected 
+						
+						e.printStackTrace(); // TODO: handle exception
+						
+					}
 				} finally {
 					disconnect();
 				}
 				
-			}
+			} // run
 			
-		};
+		}; // new Thread
+		
+		// Barrier for synchronization
+		synchronized (thread) {
+			thread.start();
+			thread.wait();
+		}
 		
 	}
 
@@ -113,6 +130,6 @@ public class URImpl implements UR {
 			}
 		}
 
-	}
+	} // disconnect
 	
 }

@@ -2,3 +2,4 @@
 .metadata
 bin/
 *.class
+bin/com/delmesoft/urx/URImpl.class
