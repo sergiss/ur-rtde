@@ -37,7 +37,9 @@ public class URImpl implements UR {
 	
 	private String host;
 	private int port;
-	private RobotModeData robotModeData;
+	
+	private final RobotModeData robotModeData;
+	private final JointData[] jointData;
 
 	public URImpl(String host) {
 		this(host, DEFAULT_PORT);
@@ -46,6 +48,12 @@ public class URImpl implements UR {
 	public URImpl(String host, int port) {
 		this.host = host;
 		this.port = port;
+		
+		robotModeData = new RobotModeData();
+		jointData = new JointData[6];
+		for(int i = 0; i < jointData.length; ++i) {
+			jointData[i] = new JointData();
+		}
 	}
 
 	@Override
@@ -158,9 +166,16 @@ public class URImpl implements UR {
 			
 			for(int i = 0; i < 6; ++i) {
 				read(is, buffer, 0, 41);
-				bb = ByteBuffer.wrap(buffer, 0, 41);
-				
-				// TODO :
+				bb = ByteBuffer.wrap(buffer, 0, 41);				
+				JointData jointData = URImpl.this.jointData[i];                               
+				jointData.setqActual(bb.getDouble(0));
+				jointData.setqTarget(bb.getDouble(8));
+				jointData.setQdActual(bb.getDouble(16));
+				jointData.setiActual(bb.getFloat(24));
+				jointData.setvActual(bb.getFloat(28));
+				jointData.settMotor(bb.getFloat(32));
+				jointData.settMicro(bb.getFloat(36));
+				jointData.setJointMode(bb.get(40) & 0xFF);
 			}
 			
 			break; // ROBOT_STATE_PACKAGE_TYPE_JOINT_DATA
