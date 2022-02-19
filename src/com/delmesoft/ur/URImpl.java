@@ -40,6 +40,7 @@ public class URImpl implements UR {
 	
 	private final RobotModeData robotModeData;
 	private final JointData[] jointData;
+	private final ToolData toolData;
 
 	public URImpl(String host) {
 		this(host, DEFAULT_PORT);
@@ -54,6 +55,7 @@ public class URImpl implements UR {
 		for(int i = 0; i < jointData.length; ++i) {
 			jointData[i] = new JointData();
 		}
+		toolData = new ToolData();
 	}
 
 	@Override
@@ -182,7 +184,16 @@ public class URImpl implements UR {
 		case ROBOT_STATE_PACKAGE_TYPE_TOOL_DATA:
 			read(is, buffer, 0, packageSize - 5);
 			bb = ByteBuffer.wrap(buffer, 0, packageSize - 5);
-			// TODO : 
+			ToolData toolData = URImpl.this.toolData;
+			toolData.setAnalogInputRange2(bb.get(0) & 0xFF);
+			toolData.setAnalogInputRange3(bb.get(1) & 0xFF);
+			toolData.setAnalogInput2(bb.getDouble(2));
+			toolData.setAnalogInput3(bb.getDouble(10));
+			toolData.setToolVoltage48v(bb.getFloat(18));
+			toolData.setToolOutputVoltage(bb.get(22) & 0xFF);
+			toolData.setToolCurrent(bb.getFloat(23));
+			toolData.setToolTemperature(bb.getFloat(27));
+			toolData.setToolMode(bb.get(31) & 0xFF);
 			break; // ROBOT_STATE_PACKAGE_TYPE_TOOL_DATA
 		case ROBOT_STATE_PACKAGE_TYPE_MASTERBOARD_DATA: // 63 bytes
 			read(is, buffer, 0, packageSize - 5);
