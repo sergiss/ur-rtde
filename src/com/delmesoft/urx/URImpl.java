@@ -6,13 +6,15 @@ import java.net.Socket;
 
 public class URImpl implements UR {
 	
-	public static final long SO_TIMEOUT = 10_000;
+	public static final int SO_TIMEOUT = 10_000;
 
 	public static final int DEFAULT_PORT = 30020;
 	
 	private Socket socket;
 	private InputStream is;
 	private OutputStream os;
+	
+	private Thread thread;
 	
 	private String host;
 	private int port;
@@ -43,6 +45,8 @@ public class URImpl implements UR {
 				
 			} catch (Exception e) {
 				throw new URException("Errorr connecting", e);
+			} finally {
+				disconnect();
 			}
 			
 		}
@@ -51,7 +55,30 @@ public class URImpl implements UR {
 	}
 
 	private void createURThread() {
-		// TODO Auto-generated method stub
+		
+		thread = new Thread("UR Thread") {
+			
+			@Override
+			public void run() {
+				
+				try {
+				
+					// Loop
+					while(!isInterrupted()) {
+						
+						
+						
+					}
+				
+				} catch (Exception e) {
+					e.printStackTrace(); // TODO: handle exception
+				} finally {
+					disconnect();
+				}
+				
+			}
+			
+		};
 		
 	}
 
