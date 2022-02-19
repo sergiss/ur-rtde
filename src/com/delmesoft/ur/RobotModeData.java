@@ -15,6 +15,10 @@ public class RobotModeData {
 	private double speedFraction;       // double 8
 	private double speedScalling;       // double 8
 	private double speedFractionLimit;  // double 8
+	
+	public boolean isReady() {
+		return realRobotConnected && realRobotEnabled && powerOnRobot && !emergencyStopped && !securityStopped;
+	}
 
 	public long getTimestamp() {
 		return timestamp;
@@ -118,6 +122,39 @@ public class RobotModeData {
 
 	public void setSpeedFractionLimit(double speedFractionLimit) {
 		this.speedFractionLimit = speedFractionLimit;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("RobotModeData [timestamp=");
+		builder.append(timestamp);
+		builder.append(", realRobotConnected=");
+		builder.append(realRobotConnected);
+		builder.append(", realRobotEnabled=");
+		builder.append(realRobotEnabled);
+		builder.append(", powerOnRobot=");
+		builder.append(powerOnRobot);
+		builder.append(", emergencyStopped=");
+		builder.append(emergencyStopped);
+		builder.append(", securityStopped=");
+		builder.append(securityStopped);
+		builder.append(", programRunning=");
+		builder.append(programRunning);
+		builder.append(", programPaused=");
+		builder.append(programPaused);
+		builder.append(", robotMode=");
+		builder.append(robotMode);
+		builder.append(", controlMode=");
+		builder.append(controlMode);
+		builder.append(", speedFraction=");
+		builder.append(speedFraction);
+		builder.append(", speedScalling=");
+		builder.append(speedScalling);
+		builder.append(", speedFractionLimit=");
+		builder.append(speedFractionLimit);
+		builder.append("]");
+		return builder.toString();
 	}
 
 }
