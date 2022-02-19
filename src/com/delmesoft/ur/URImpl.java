@@ -15,8 +15,6 @@ import com.delmesoft.ur.utils.Vec3;
 
 public class URImpl implements UR {
 	
-	public static final int DASHBOARD_PORT = 29999;
-	
 	// RTDE	
 	public static final int ROBOT_STATE_PACKAGE_TYPE_ROBOT_MODE_DATA       =  0;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_JOINT_DATA            =  1;
@@ -33,8 +31,9 @@ public class URImpl implements UR {
 	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO        = 12;
 	public static final int MESSAGE_TYPE_ROBOT_STATE                       = 16;
 	
-	public static final int SO_TIMEOUT   = 10_000;
-	public static final int DEFAULT_PORT = 30020;
+	public static final int SO_TIMEOUT     = 10000;
+	public static final int DEFAULT_PORT   = 30020;
+	public static final int DASHBOARD_PORT = 29999;
 	
 	private Socket socket;
 	private InputStream is;
@@ -122,10 +121,8 @@ public class URImpl implements UR {
 					}
 				
 				} catch (Exception e) {
-					if(isConnected()) { // still connected 
-						
+					if(isConnected()) { // still connected
 						e.printStackTrace(); // TODO: handle exception
-						
 					}
 				} finally {
 					disconnect();
