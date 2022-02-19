@@ -8,6 +8,10 @@ import com.delmesoft.ur.utils.JointPosition;
 import com.delmesoft.ur.utils.Pose;
 import com.delmesoft.ur.utils.Vec3;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public interface UR {
 	
 	public static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("0.#################", new DecimalFormatSymbols(Locale.US));

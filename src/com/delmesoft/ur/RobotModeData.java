@@ -1,5 +1,9 @@
 package com.delmesoft.ur;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class RobotModeData {
 
 	private long timestamp;             // unsigned long long 8

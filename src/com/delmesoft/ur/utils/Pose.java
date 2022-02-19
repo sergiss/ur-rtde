@@ -2,6 +2,10 @@ package com.delmesoft.ur.utils;
 
 import static com.delmesoft.ur.UR.DECIMAL_FORMAT;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class Pose {
 	
 	private Vec3 position; // center point

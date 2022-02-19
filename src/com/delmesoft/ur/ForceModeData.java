@@ -2,6 +2,10 @@ package com.delmesoft.ur;
 
 import com.delmesoft.ur.utils.Pose;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class ForceModeData {
 	
 	private Pose pose = new Pose();

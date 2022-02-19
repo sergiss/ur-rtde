@@ -4,6 +4,10 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class Utils {
 	
 	public static void read(InputStream is, byte[] data, int off, int len) throws IOException {

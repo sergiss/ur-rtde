@@ -2,6 +2,10 @@ package com.delmesoft.ur.utils;
 
 import static com.delmesoft.ur.UR.DECIMAL_FORMAT;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class Vec3 {
 	
 public static final Vec3 ZERO = new Vec3();

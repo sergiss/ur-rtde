@@ -4,6 +4,10 @@ import com.delmesoft.ur.utils.JointPosition;
 import com.delmesoft.ur.utils.Pose;
 import com.delmesoft.ur.utils.Vec3;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class MoveTest {
 
 	public static void main(String[] args) throws Exception {

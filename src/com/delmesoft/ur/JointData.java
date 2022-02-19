@@ -1,5 +1,9 @@
 package com.delmesoft.ur;
 
+/*
+ * Copyright (c) 2021, Sergio S.- sergi.ss4@gmail.com http://sergiosoriano.com
+ */
+
 public class JointData {
 	
 	private double qActual;  // position actual
