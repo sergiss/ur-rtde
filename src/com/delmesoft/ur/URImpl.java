@@ -7,14 +7,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
+import com.delmesoft.ur.utils.JointPosition;
 import com.delmesoft.ur.utils.Pose;
-
+import com.delmesoft.ur.utils.Vec3;
 
 public class URImpl implements UR {
 	
-	// RTDE
+	public static final int DASHBOARD_PORT = 29999;
 	
+	// RTDE	
 	public static final int ROBOT_STATE_PACKAGE_TYPE_ROBOT_MODE_DATA       =  0;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_JOINT_DATA            =  1;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_DATA             =  2;
@@ -27,8 +30,10 @@ public class URImpl implements UR {
 	public static final int ROBOT_STATE_PACKAGE_TYPE_NEEDED_FOR_CALIB_DATA =  9;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_SAFETY_DATA           = 10;
 	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO        = 11;
+	public static final int ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO        = 12;
+	public static final int MESSAGE_TYPE_ROBOT_STATE                       = 16;
 	
-	public static final int SO_TIMEOUT = 10_000;
+	public static final int SO_TIMEOUT   = 10_000;
 	public static final int DEFAULT_PORT = 30020;
 	
 	private Socket socket;
@@ -47,6 +52,8 @@ public class URImpl implements UR {
 	private final CartesianInfo cartesianInfo;
 	private final ForceModeData forceModeData;
 	private final AdditionalInfo additionalInfo;
+	
+	private String command;
 
 	public URImpl(String host) {
 		this(host, DEFAULT_PORT);
@@ -138,7 +145,10 @@ public class URImpl implements UR {
 	
 	private void step(final byte[] buffer) throws IOException {
 		
-		// TODO : send cmd
+		synchronized (URImpl.this) {
+			sendSyncCmd(command);
+			command = null;
+		}
 		
 		// HEADER (5 bytes)
 		// -----------------------
@@ -276,14 +286,58 @@ public class URImpl implements UR {
 			read(is, buffer, 0, packageSize - 5);
 			break; // ROBOT_STATE_PACKAGE_TYPE_SAFETY_DATA
 		case ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO:
-			// // This package is used internally by Universal Robots software only and should be skipped.
+			// This package is used internally by Universal Robots software only and should be skipped.
 			read(is, buffer, 0, packageSize - 5);
-			break; // ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO	
+			/*bb = ByteBuffer.wrap(buffer, 0, packageSize - 5);
+			boolean toolCommunicationIsEnabled = bb.get() == 1;
+			int baudRate = bb.getInt(1);
+			int parity   = bb.getInt(5);
+			int stopBits = bb.getInt(9);
+			float rxIdleChars = bb.getFloat(13);
+			float txIdleChars = bb.getFloat(17);*/
+			break; // ROBOT_STATE_PACKAGE_TYPE_TOOL_COMM_INFO
+		case ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO:
+			read(is, buffer, 0, packageSize - 5);
+			break; // ROBOT_STATE_PACKAGE_TYPE_TOOL_MODE_INFO			
+		case MESSAGE_TYPE_ROBOT_STATE:
+			// ignore
+			break; // MESSAGE_TYPE_ROBOT_STATE
+		case 20: {// MESSAGE_TYPE_ROBOT_MESSAGE *********************************
+			int n = packageSize - 5;
+			read(is, buffer, 0, n);
+			
+			/*bb = ByteBuffer.wrap(buffer, 0, n);
+			
+			long timestamp = bb.getLong();
+			int source = bb.get(8);								
+			int messageType = bb.get(9);
+			
+			String message = new String(buffer, 10, n - 10);
+			System.out.println("*************");
+			System.out.println(message);*/
+			
+			break;
+		} // end case 20
 		default : // Unimplemented 
 			read(is, buffer, 0, packageSize - 5);
 			break;			
 		}	
 		
+	}
+	
+	private synchronized void sendSyncCmd(String command) throws IOException {
+		if (command != null && isConnected()) {
+			// send current command
+			byte[] data = command.getBytes("UTF-8");
+			os.write(data);
+			os.flush();
+		}
+	}
+	
+	private synchronized void sendAsyncCmd(String cmd) throws Exception {
+		if (isConnected()) {
+			command = cmd;
+		}
 	}
 
 	@Override
@@ -318,5 +372,463 @@ public class URImpl implements UR {
 		}
 
 	} // disconnect
+
+	@Override
+	public void powerOn() throws Exception {
+		powerOn(true);
+	}
+	
+	protected void powerOn(boolean retry) throws Exception {
+		
+		try (Socket socket = new Socket(host, DASHBOARD_PORT)) { // RTDE
+			socket.setSoTimeout(SO_TIMEOUT);
+			OutputStream out = socket.getOutputStream();
+			InputStream is = socket.getInputStream();
+			readResponse(is);
+			String message;
+			for(;;) {
+				
+				out.write("close popup\n".getBytes("UTF-8"));
+				out.flush();
+				Thread.sleep(50);
+				message = readResponse(is);
+				
+				out.write("close safety popup\n".getBytes("UTF-8"));
+				out.flush();
+				Thread.sleep(50);
+				message = readResponse(is);
+				
+				out.write("unlock protective stop\n".getBytes("UTF-8"));
+				out.flush();
+				Thread.sleep(50);
+				message = readResponse(is);
+				if (!message.contains("Cannot unlock protective")) {
+					break;
+				}
+				
+				if(!retry) {
+					break;
+				} else {
+					retry = false;
+					Thread.sleep(5000); // The unlock protective stop command fails if less than 5 seconds has passed since the protective stop occurred.
+				}
+				
+			}
+			
+			out.write("power on\n".getBytes("UTF-8"));
+			out.flush();
+			Thread.sleep(50);
+			message = readResponse(is);
+			
+			out.write("brake release\n".getBytes("UTF-8"));
+			out.flush();
+			Thread.sleep(50);
+			message = readResponse(is);
+		}
+				
+	}
+	
+	private String readResponse(InputStream is) throws IOException {
+		StringBuffer sb = new StringBuffer();
+		char c;
+		do {
+			c = (char) is.read();
+			if (c == '\n')
+				break;
+			sb.append(c);
+		} while (c != -1);
+		return sb.toString();
+	}
+
+	@Override
+	public void powerOff() throws Exception {
+		try (Socket socket = new Socket(host, DASHBOARD_PORT)) { // RTDE
+			socket.setSoTimeout(SO_TIMEOUT);
+			OutputStream out = socket.getOutputStream();
+			InputStream is = socket.getInputStream();
+			out.write("power off\n".getBytes("UTF-8"));
+			out.flush();
+			readResponse(is);
+		}
+		
+	}
+
+	@Override
+	public void setFreedriveMode(boolean b) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("def myProg():\n");
+		if(b) {
+			sb.append("\tfreedrive_mode()\n");
+			sb.append("\tsleep(60)\n");
+		} else {
+			sb.append("\tend_freedrive_mode()\n");
+		}
+		sb.append("end\n");
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void stopJ(double a) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("stopj(")
+		.append(DECIMAL_FORMAT.format(a))
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void stopL(double a) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("stopl(")
+		.append(DECIMAL_FORMAT.format(a))
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void speedl(double[] toolSpeed, double a, double t) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("speedl(")
+		.append(Arrays.toString(toolSpeed)).append(',')
+		.append("a=").append(a).append(',')
+		.append("t=").append(t)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void speedj(double[] jointSpeeds, double a, double t) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("speedj(")
+		.append(Arrays.toString(jointSpeeds)).append(',')
+		.append("a=").append(a).append(',')
+		.append("t=").append(t)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void setTcp(Pose pose) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("set_tcp(");
+		sb.append(pose.toString());
+		sb.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void setPayload(double mass, Vec3 centerOfMass) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("set_payload(")
+		.append(DECIMAL_FORMAT.format(mass))
+		.append(',').append(centerOfMass.toString())
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void setGravity(Vec3 gravity) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("set_gravity([")
+		.append(DECIMAL_FORMAT.format(gravity.x)).append(',')
+		.append(DECIMAL_FORMAT.format(gravity.y)).append(',')
+		.append(DECIMAL_FORMAT.format(gravity.z))
+		.append("])\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movec(Pose via, Pose to, double a, double v, double r, int mode) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movec(")
+		.append(via).append(',')
+		.append(to).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("r=").append(r).append(',')
+		.append(mode)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movej(JointPosition q, double a, double v, double t, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movej(")
+		.append(q).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movej(Pose p, double a, double v, double t, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movej(")
+		.append(p).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movel(Pose p, double a, double v, double t, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movel(")
+		.append(p).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movel(JointPosition q, double a, double v, double t, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movel(")
+		.append(q).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movep(Pose p, double a, double v, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movep(")
+		.append(p).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void movep(JointPosition q, double a, double v, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("movep(")
+		.append(q).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void servoc(Pose pose, double a, double v, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("servoc(")
+		.append(pose).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void servoc(JointPosition q, double a, double v, double r) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("servoc(")
+		.append(q).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("r=").append(r)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void servoj(JointPosition q, double a, double v, double t, double lookahead_time, double gain) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("servoj(")
+		.append(q).append(',')
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("lookahead_time=").append(lookahead_time).append(',')
+		.append("gain=").append(gain)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public void servoj(Pose pose, double a, double v, double t, double lookahead_time, double gain) throws Exception {
+		final StringBuilder sb = new StringBuilder();
+		sb.append("servoj(get_inverse_kin(")
+		.append(pose).append("),")
+		.append("a=").append(a).append(',')
+		.append("v=").append(v).append(',')
+		.append("t=").append(t).append(',')
+		.append("lookahead_time=").append(lookahead_time).append(',')
+		.append("gain=").append(gain)
+		.append(")\n");
+
+		String cmd = sb.toString();
+		sendAsyncCmd(cmd);
+	}
+
+	@Override
+	public Pose getPose() {
+		return getPose(null);
+	}
+
+	@Override
+	public Pose getPose(Pose result) {
+		if(result == null) {
+			result = new Pose();
+		}
+		return result.set(cartesianInfo.getPose());
+	}
+
+	@Override
+	public Pose getTcpOffset() {
+		return cartesianInfo.getTcpOffset().copy();
+	}
+
+	@Override
+	public JointData[] getJointData() {
+		return JointData.copy(jointData);
+	}
+
+	@Override
+	public JointPosition getJointPosition() {
+		return getJointPosition(null);
+	}
+
+	@Override
+	public JointPosition getJointPosition(JointPosition result) {
+		if(result == null) {
+			result = new JointPosition();
+		}
+		result.set(jointData[0].getqActual(), jointData[1].getqActual(), jointData[2].getqActual(), jointData[3].getqActual(), jointData[4].getqActual(), jointData[5].getqActual());
+		return result;
+	}
+
+	@Override
+	public ToolData getToolData() {
+		return toolData.copy();
+	}
+
+	@Override
+	public RobotModeData getRobotModeData() {
+		return robotModeData;
+	}
+
+	@Override
+	public boolean waitFor(Pose pose, double threshold, long timeout) throws Exception {
+		if(timeout != 0) {
+			if(threshold < 0.001) threshold = 0.001;
+			Pose currentPose;
+			long lastUpdate = System.currentTimeMillis();
+			for(;;) {
+				currentPose = getPose();
+				if(pose.dst(currentPose) <= threshold) {
+					return true;
+				}
+				if(!getRobotModeData().isProgramRunning()) { // if not has motion
+					if(System.currentTimeMillis() - lastUpdate > timeout) {
+						return false; // timeout
+					}
+				} else {
+					lastUpdate = System.currentTimeMillis();
+				}
+				Thread.sleep(5);
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean waitFor(Pose pose, double threshold) throws Exception {
+		return waitFor(pose, threshold, 2_000);
+	}
+
+	@Override
+	public boolean waitFor(Pose pose) throws Exception {
+		return waitFor(pose, 0.01);
+	}
+
+	@Override
+	public boolean waitFor(JointPosition jointPosition, double threshold, long timeout) throws Exception {
+		if(timeout != 0) {
+			if(threshold < 0.001) threshold = 0.001;
+			JointPosition currentJointPosition;
+			long lastUpdate = System.currentTimeMillis();
+			for(;;) {
+				currentJointPosition = getJointPosition();
+				if(jointPosition.dst(currentJointPosition) <= threshold) {
+					return true;
+				}
+				if(!getRobotModeData().isProgramRunning()) { // if not has motion
+					if(System.currentTimeMillis() - lastUpdate > timeout) {
+						return false; // timeout
+					}
+				} else {
+					lastUpdate = System.currentTimeMillis();
+				}
+				Thread.sleep(5);
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public boolean waitFor(JointPosition jointPosition, double threshold) throws Exception {
+		return waitFor(jointPosition, threshold, 2_000);
+	}
+
+	@Override
+	public boolean waitFor(JointPosition jointPosition) throws Exception {
+		return waitFor(jointPosition, 0.01);
+	}
 	
 }
