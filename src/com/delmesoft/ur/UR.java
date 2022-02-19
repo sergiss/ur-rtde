@@ -1,4 +1,4 @@
-package com.delmesoft.urx;
+package com.delmesoft.ur;
 
 public interface UR {
 	
