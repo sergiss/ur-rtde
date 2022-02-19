@@ -88,11 +88,31 @@ public class URImpl implements UR {
 	}
 
 	@Override
-	public synchronized void  disconnect() {
-		// TODO Auto-generated method stub
-		
+	public synchronized void disconnect() {
+
+		if (isConnected()) {
+			// interrupt UR thread
+			if (thread != null) {
+				try {
+					thread.interrupt();
+				} catch (Exception e) {
+				} finally {
+					thread = null;
+				}
+			}
+			// close socket
+			if (socket != null) {
+				try {
+					socket.close();
+				} catch (Exception e) {
+				} finally {
+					socket = null;
+					is = null;
+					os = null;
+				}
+			}
+		}
+
 	}
 	
-	
-
 }
